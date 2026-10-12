@@ -1,0 +1,51 @@
+name: ML CI-CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run ML tests
+        run: python -m pytest -v
+
+      - name: Upload trained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: iris-model
+          path: artifacts/iris_model.pkl
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download validated model
+        uses: actions/download-artifact@v4
+        with:
+          name: iris-model
+          path: deployment
+
+      - name: Validate deployment artifact
+        run: |
+          python -c "import os; assert os.path.getsize('deployment/iris_model.pkl') > 0"
+          echo "Deployment artifact validated successfully"
